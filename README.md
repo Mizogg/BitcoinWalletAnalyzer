@@ -94,7 +94,7 @@ Use Case: By loading different wallet files, users can quickly match addresses t
 ### Key Extraction: Extracts critical information such as public keys and addresses.
 In short, this tool provides a way to inspect wallet files, extract useful cryptographic details, and potentially assist in recovering access to Bitcoin addresses.
 
-It Has two methods, `read_encrypted_key` and `read_wallet`, which both contribute to the analysis of a Bitcoin Core wallet file. The two methods use **`consoleWindow`** (one of your two console windows) to print or display the results. Here's a detailed breakdown of what each method is doing:
+It Has two methods, `read_encrypted_key` and `read_wallet`, which both contribute to the analysis of a Bitcoin Core wallet file. The two methods use **`consoleWindow`** to print or display the results. Here's a detailed breakdown of what each method is doing:
 
 ---
 
