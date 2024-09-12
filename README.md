@@ -94,3 +94,88 @@ Use Case: By loading different wallet files, users can quickly match addresses t
 ### Key Extraction: Extracts critical information such as public keys and addresses.
 In short, this tool provides a way to inspect wallet files, extract useful cryptographic details, and potentially assist in recovering access to Bitcoin addresses.
 
+It Has two methods, `read_encrypted_key` and `read_wallet`, which both contribute to the analysis of a Bitcoin Core wallet file. The two methods use **`consoleWindow`** (one of your two console windows) to print or display the results. Here's a detailed breakdown of what each method is doing:
+
+---
+
+### 1. `read_encrypted_key(self, wallet_filename)`
+This method reads the encrypted master key from a Bitcoin Core wallet file and extracts various cryptographic details.
+
+#### Step-by-Step Breakdown:
+- **`wallet_file.seek(12)`**: 
+  - The method starts by skipping the first 12 bytes of the wallet file, likely to ignore metadata or header information that is irrelevant to this part of the analysis.
+  
+- **`magic_bytes = wallet_file.read(8)`**: 
+  - The next 8 bytes are read to check for the presence of specific magic bytes (`b"\x62\x31\x05\x00\x09\x00\x00\x00"`) that are unique to Bitcoin Core wallet files. If the file doesn't match, it prints an error message.
+
+- **Search for the Master Key (`mkey`)**:
+  - It then looks for the bytes `\x04mkey\x01\x00\x00\x00` which signify the presence of an encrypted master key (`mkey`) in the wallet file. If it's not found, it prints an error message.
+
+- **Extracting the Encrypted Master Key**:
+  - The method extracts 49 bytes representing the encrypted master key, 9 bytes for the salt, and 4 bytes each for the key derivation method and iteration count (used to derive the key). 
+  - These fields are unpacked from the file using `struct.unpack_from("<49s9sII", mkey_data)`.
+
+- **Warning for Unexpected Key Derivation Methods**:
+  - If the key derivation method is different from what is expected (`method != 0`), it prints a warning, indicating that a non-standard key derivation method was used in the wallet.
+
+- **Extracting Important Fields**:
+  - **IV (Initialization Vector)**: Extracted from the 16th to 32nd byte of the encrypted master key.
+  - **Ciphertext (`ct`)**: Extracted from the last 16 bytes of the encrypted master key.
+  - **Iterations**: The number of iterations for key derivation is stored in `iterations`, which is formatted as hexadecimal.
+
+- **Console Output**:
+  - The results, including the encrypted master key, ciphertext, salt, IV, and iteration count, are printed to the console (`self.consoleWindow.append_output(...)`). These values are critical for key recovery tools, such as when attempting to brute-force or decrypt the wallet.
+
+---
+
+### 2. `read_wallet(self, file_path)`
+This method analyzes the entire wallet file, calling `read_encrypted_key` and performing additional analysis, like finding and extracting **`ckey`** (encrypted private keys) and public keys.
+
+#### Step-by-Step Breakdown:
+- **`self.read_encrypted_key(file_path)`**: 
+  - It starts by calling `read_encrypted_key` to extract and display the encrypted master key as discussed above.
+
+- **Read Wallet Data**:
+  - The method reads the entire wallet file into memory (`data = wallet.read()`), which will be used for further analysis.
+
+- **Find and Extract the Master Key (`mkey`)**:
+  - It searches for the term `mkey` in the wallet file, similar to the previous method, but this time it extracts 48 bytes preceding the found `mkey` as part of its data analysis.
+
+- **Console Output for Master Key**:
+  - If a master key is found, it prints the encrypted master key to the console using `self.consoleWindow.append_output`.
+
+- **Extracting `ckey` (Encrypted Private Keys)**:
+  - After extracting the master key, it searches for occurrences of the term `ckey`, which signifies an encrypted private key. 
+  - If a `ckey` is found, it extracts 123 bytes of data around the found location. The first 48 bytes are the encrypted private key, and the public key follows.
+  
+- **Public Key Analysis**:
+  - The length of the public key is determined from the 57th byte, and the public key is extracted. The extracted public key is passed to `self.pubkeytopubaddress(public_key)` to generate the corresponding Bitcoin public address.
+  
+- **Console Output for Encrypted Private Key and Public Key**:
+  - The method then prints the extracted information to the console window, including:
+    - The **encrypted `ckey`** (encrypted private key).
+    - The **public key**.
+    - The **Bitcoin public address** derived from the public key.
+
+- **`pubkeytopubaddress(public_key)`**:
+  - This is a helper function that converts the public key into a Bitcoin public address. It does this by:
+    1. Hashing the public key with **SHA-256**.
+    2. Applying **RIPEMD-160** to the SHA-256 hash.
+    3. Adding a network byte prefix (`0x00` for Bitcoin).
+    4. Computing a checksum using double SHA-256.
+    5. Encoding the result using **Base58** (a Bitcoin address format).
+  - This derived Bitcoin address is printed to the console.
+
+---
+
+### Summary of the Methods:
+
+1. **`read_encrypted_key()`**:
+   - This method focuses on extracting and printing details related to the encrypted master key (`mkey`) from a wallet file. It gathers essential cryptographic details (like IV, ciphertext, and salt) for potential decryption attempts.
+
+2. **`read_wallet()`**:
+   - This method is more comprehensive. It not only extracts the master key but also identifies and extracts encrypted private keys (`ckey`) and associated public keys. It further converts the public keys into Bitcoin addresses and prints all this information to the console.
+   - This method calls `read_encrypted_key` first, then proceeds to scan the wallet for additional information such as encrypted keys and addresses. 
+
+Both methods provide valuable insight into a wallet's structure and can assist in recovering lost or encrypted Bitcoin funds.
+
